@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduControl - Imtihon va Nazorat Platformasi</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        /* Anti-Cheat and Screen Protection */
+        .no-select {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .shield-blur {
+            filter: blur(25px) grayscale(100%);
+            pointer-events: none;
+        }
+
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen no-select" oncontextmenu="return false;">
+
+<!-- APP CONTAINER -->
+<div id="app" class="min-h-screen flex flex-col">
+
+    <!-- HEADER / NAVIGATION -->
+    <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-graduation-cap text-indigo-400 text-2xl"></i>
+            <h1 class="font-bold text-xl tracking-wide bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">EduControl</h1>
+        </div>
+        <div id="userInfoHeader" class="hidden flex items-center gap-4 text-sm bg-slate-700/50 px-4 py-2 rounded-lg border border-slate-600">
+            <span id="headerUserRole" class="font-semibold text-indigo-300"></span>
+            <span class="text-slate-500">|</span>
+            <span id="headerUserName" class="text-slate-200"></span>
+            <button onclick="logout()" class="ml-2 text-xs text-rose-400 hover:text-rose-300 font-medium">Chiqlish <i class="fa-solid fa-right-from-bracket ml-1"></i></button>
+        </div>
+    </header>
+
+    <!-- CONTENT AREA -->
+    <main class="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
+
+        <!-- 1. LANDING / WELCOME SCREEN -->
+        <div id="screenWelcome" class="w-full max-w-xl bg-slate-800/90 border border-slate-700 p-8 rounded-2xl shadow-2xl text-center backdrop-blur-md">
+            <div class="w-20 h-20 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl border border-indigo-500/20">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h2 class="text-3xl font-extrabold text-white mb-2">Siz bu saytga xush kelibsiz!</h2>
+            <p class="text-slate-400 mb-8">O'quvchilar bilimini xavfsiz va shaffof nazorat qilish platformasiga xush kelibsiz. Tizimga kirish turini tanlang:</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button onclick="selectRole('teacher')" class="p-6 bg-slate-700/60 hover:bg-indigo-600/20 border-2 border-slate-600 hover:border-indigo-500 rounded-xl transition duration-200 text-left group">
+                    <i class="fa-solid fa-user-tie text-3xl text-indigo-400 group-hover:scale-110 transition duration-200 mb-3 block"></i>
+                    <h3 class="font-bold text-lg text-white">O'qituvchi Paneli</h3>
+                    <p class="text-xs text-slate-400 mt-1">Guruhlar va testlar yaratish, nazorat qilish</p>
+                </button>
+
+                <button onclick="selectRole('student')" class="p-6 bg-slate-700/60 hover:bg-cyan-600/20 border-2 border-slate-600 hover:border-cyan-500 rounded-xl transition duration-200 text-left group">
+                    <i class="fa-solid fa-user-graduate text-3xl text-cyan-400 group-hover:scale-110 transition duration-200 mb-3 block"></i>
+                    <h3 class="font-bold text-lg text-white">O'quvchi Paneli</h3>
+                    <p class="text-xs text-slate-400 mt-1">Imtihon topshirish va bilimingizni sinash</p>
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. TEACHER AUTH & SETUP SCREEN -->
+        <div id="screenTeacherAuth" class="hidden w-full max-w-md bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl">
+            <h2 id="teacherAuthTitle" class="text-2xl font-bold text-white mb-2 text-center">O'qituvchi Kirishi</h2>
+            <p id="teacherAuthSub" class="text-slate-400 text-sm mb-6 text-center">Tizimga kirish uchun maxfiy parolni kiriting</p>
+
+            <form id="formTeacherAuth" onsubmit="handleTeacherAuth(event)" class="space-y-4">
+                <div id="teacherNameGroup">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">ISM FAMILIYANGIZ</label>
+                    <input type="text" id="teacherFullName" placeholder="Masalan: Anvar Alimov" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">MAXFIY PAROL</label>
+                    <input type="password" id="teacherPassword" required placeholder="Parolni kiriting" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm">
+                </div>
+                <div id="teacherAuthError" class="hidden text-rose-400 text-xs font-medium text-center"></div>
+                <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg shadow-lg transition duration-200">
+                    Kirish <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+            <button onclick="goBack()" class="w-full mt-4 text-xs text-slate-400 hover:text-white">Orqaga qaytish</button>
+        </div>
+
+        <!-- 3. TEACHER DASHBOARD SCREEN -->
+        <div id="screenTeacherDash" class="hidden w-full max-w-6xl space-y-6">
+            <!-- Navigation Tabs -->
+            <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-800 p-4 rounded-xl border border-slate-700">
+                <div class="flex gap-2">
+                    <button onclick="switchTeacherTab('tabLogs')" id="btnTabLogs" class="px-4 py-2 rounded-lg font-medium text-sm bg-indigo-600 text-white transition">
+                        <i class="fa-solid fa-triangle-exclamation mr-2"></i> Real-Vaqt Loglar <span id="badgeLogs" class="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full ml-1">0</span>
+                    </button>
+                    <button onclick="switchTeacherTab('tabGroups')" id="btnTabGroups" class="px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 text-slate-300 hover:bg-slate-600 transition">
+                        <i class="fa-solid fa-users mr-2"></i> Guruhlar Yaratish
+                    </button>
+                    <button onclick="switchTeacherTab('tabTests')" id="btnTabTests" class="px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 text-slate-300 hover:bg-slate-600 transition">
+                        <i class="fa-solid fa-file-pen mr-2"></i> Test Yaratish
+                    </button>
+                    <button onclick="switchTeacherTab('tabResults')" id="btnTabResults" class="px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 text-slate-300 hover:bg-slate-600 transition">
+                        <i class="fa-solid fa-square-poll-vertical mr-2"></i> Natijalar
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 1: REAL-TIME LOGS & SECURITY WARNINGS -->
+            <div id="tabLogs" class="space-y-4">
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></span> Qoidabuzarlik Xabarnomalari (Anti-Cheat Loglar)
+                        </h3>
+                        <button onclick="clearLogs()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-slate-300">Tozalash</button>
+                    </div>
+                    <div id="logsContainer" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                        <div class="text-center text-slate-500 py-8 text-sm">Hali hech qanday qoidabuzarlik qayd etilmadi.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: GROUPS MANAGEMENT -->
+            <div id="tabGroups" class="hidden space-y-4">
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-4">Yangi Guruh Qo'shish</h3>
+                    <form onsubmit="createGroup(event)" class="flex gap-4">
+                        <input type="text" id="inputGroupName" placeholder="Guruh nomi (Masalan: FIZIKA-101)" required class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 rounded-lg text-white font-medium text-sm">Guruhni Saqlash</button>
+                    </form>
+                </div>
+
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-4">Mavjud Guruhlar Ro'yxati</h3>
+                    <div id="groupsList" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Dynamic Groups -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: TEST CREATOR -->
+            <div id="tabTests" class="hidden space-y-4">
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-4">Yangi Test Savoli Qo'shish</h3>
+                    <form onsubmit="addTestQuestion(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">SAVOL MATNI</label>
+                            <textarea id="qText" required placeholder="Savol matnini kiriting..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-indigo-500"></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">A VARIANT</label>
+                                <input type="text" id="qOptA" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">B VARIANT</label>
+                                <input type="text" id="qOptB" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">C VARIANT</label>
+                                <input type="text" id="qOptC" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1">D VARIANT</label>
+                                <input type="text" id="qOptD" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">TO'G'RI JAVOB</label>
+                            <select id="qCorrect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm">
+                                <option value="0">A Variant</option>
+                                <option value="1">B Variant</option>
+                                <option value="2">C Variant</option>
+                                <option value="3">D Variant</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg text-white font-semibold text-sm">Savolni Qo'shish</button>
+                    </form>
+                </div>
+
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-4">Mavjud Testlar (<span id="testCount">0</span> ta)</h3>
+                    <div id="questionsList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- TAB 4: RESULTS -->
+            <div id="tabResults" class="hidden bg-slate-800 border border-slate-700 p-6 rounded-xl">
+                <h3 class="text-lg font-bold text-white mb-4">O'quvchilar Imtihon Natijalari</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead class="bg-slate-900 text-slate-400 uppercase text-xs">
+                        <tr>
+                            <th class="p-3">O'quvchi</th>
+                            <th class="p-3">Guruh</th>
+                            <th class="p-3">Natija</th>
+                            <th class="p-3">Foiz</th>
+                            <th class="p-3">Holat</th>
+                            <th class="p-3">Qoidabuzarliklar</th>
+                        </tr>
+                        </thead>
+                        <tbody id="resultsTableBody" class="divide-y divide-slate-700">
+                        <!-- Dynamic Results -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. STUDENT AUTH / REGISTRATION SCREEN -->
+        <div id="screenStudentAuth" class="hidden w-full max-w-md bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl">
+            <h2 class="text-2xl font-bold text-white mb-2 text-center">O'quvchi Kirishi</h2>
+            <p class="text-slate-400 text-sm mb-6 text-center">Ma'lumotlaringizni kiriting va imtihonni boshlang</p>
+
+            <form onsubmit="startStudentExam(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">ISM VA FAMILIYA</label>
+                    <input type="text" id="studentFullName" required placeholder="Masalan: Ali Valiyev" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">GURUHINGIZNI TANLANG</label>
+                    <select id="studentGroupSelect" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                        <!-- Dynamic Options -->
+                    </select>
+                </div>
+                <div id="studentAuthError" class="hidden text-rose-400 text-xs font-medium text-center"></div>
+                <button type="submit" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg shadow-lg transition duration-200">
+                    Imtihonni Boshlash <i class="fa-solid fa-play ml-2"></i>
+                </button>
+            </form>
+            <button onclick="goBack()" class="w-full mt-4 text-xs text-slate-400 hover:text-white">Orqaga qaytish</button>
+        </div>
+
+        <!-- 5. STUDENT EXAM PANEL (ANTI-CHEAT ACTIVE) -->
+        <div id="screenStudentExam" class="hidden w-full max-w-3xl bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden relative">
+
+            <!-- TIMER & PROGRESS BAR -->
+            <div class="bg-slate-900 px-6 py-4 flex items-center justify-between border-b border-slate-700">
+                <div>
+                    <span class="text-xs text-slate-400 block">IMTIHON TOPSHIRUVCHI</span>
+                    <span id="examStudentName" class="font-bold text-white text-sm"></span>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700">
+                    <i class="fa-regular fa-clock text-amber-400 animate-pulse"></i>
+                    <span id="examTimer" class="font-mono font-bold text-amber-400 text-lg">15:00</span>
+                </div>
+            </div>
+
+            <!-- QUESTION & OPTIONS CONTENT AREA -->
+            <div id="examContentArea" class="p-8 transition duration-200">
+                <div class="flex justify-between items-center mb-6">
+                        <span class="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
+                            Savol <span id="currentQNum">1</span> / <span id="totalQNum">5</span>
+                        </span>
+                    <span class="text-xs text-rose-400 font-medium"><i class="fa-solid fa-shield-cat mr-1"></i> Anti-Cheat Himoyalangan</span>
+                </div>
+
+                <h3 id="questionText" class="text-xl font-bold text-white mb-6"></h3>
+
+                <div id="optionsContainer" class="space-y-3 mb-8">
+                    <!-- Dynamic Options -->
+                </div>
+
+                <div class="flex justify-between items-center pt-4 border-t border-slate-700">
+                    <button onclick="prevQuestion()" id="btnPrevQ" class="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium disabled:opacity-30">
+                        <i class="fa-solid fa-chevron-left mr-2"></i> Oldingisi
+                    </button>
+                    <button onclick="nextQuestion()" id="btnNextQ" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium">
+                        Keyingisi <i class="fa-solid fa-chevron-right ml-2"></i>
+                    </button>
+                    <button onclick="submitExam()" id="btnSubmitQ" class="hidden px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold">
+                        Imtihonni Yakunlash <i class="fa-solid fa-check ml-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ANTI-CHEAT BLUR & SCREENSHOT SHIELD OVERLAY -->
+            <div id="securityShieldOverlay" class="hidden absolute inset-0 bg-slate-950/95 z-50 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
+                <div class="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-4 text-4xl border border-rose-500/20 animate-pulse">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-white mb-2">XAVFSIZLIK OGOHLANTIRISHI!</h3>
+                <p class="text-slate-300 max-w-md mb-6 text-sm">
+                    Siz ekran screenshotini olishga yoki paneldan chiqishga urindingiz! Ushbu harakatingiz haqida <span class="text-rose-400 font-bold">O'qituvchiga zudlik bilan habar borish bajarildi!</span>
+                </p>
+                <button onclick="resumeExam()" class="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-xl transition transform active:scale-95">
+                    Testga Qaytish (Fullscreen) <i class="fa-solid fa-expand ml-2"></i>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- 6. RESULT SCREEN (PASSED / FAILED) -->
+        <div id="screenResult" class="hidden w-full max-w-lg bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl text-center">
+            <!-- PASSED -->
+            <div id="resPassed" class="hidden space-y-4">
+                <div class="text-6xl mb-2">🎉</div>
+                <h2 class="text-2xl font-extrabold text-emerald-400">TASHAKKUR! IMTIHONDAN O'TDINGIZ!</h2>
+                <p class="text-slate-200 text-lg">
+                    Hurmatli <span id="passStudentName" class="font-bold text-amber-300"></span> siz imtihondan o'tdingiz keyingi imtihonlarda omad!
+                </p>
+                <div class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                    <span class="text-xs text-slate-400 block">SIZNING NATIJANGIZ</span>
+                    <span id="passScore" class="text-3xl font-extrabold text-emerald-400"></span>
+                </div>
+            </div>
+
+            <!-- FAILED -->
+            <div id="resFailed" class="hidden space-y-4">
+                <div class="text-6xl mb-2">😔</div>
+                <h2 class="text-2xl font-extrabold text-rose-400">IMTIHON YAKUNLANDI</h2>
+                <p class="text-slate-200 text-lg">
+                    Hurmatli <span id="failStudentName" class="font-bold text-amber-300"></span> siz imtihondan yiqildingiz yanada kuchliroq tayyorlaning va buni siz uddalaysiz!
+                </p>
+                <div class="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                    <span class="text-xs text-slate-400 block">SIZNING NATIJANGIZ</span>
+                    <span id="failScore" class="text-3xl font-extrabold text-rose-400"></span>
+                </div>
+            </div>
+
+            <button onclick="goHome()" class="mt-8 px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium text-sm">
+                Bosh Sahifaga Qaytish
+            </button>
+        </div>
+
+    </main>
+</div>
+
+<!-- JAVASCRIPT LOGIC -->
+<script>
+    // GLOBAL STATE & STORAGE INITIALIZATION
+    const DEFAULT_GROUPS = ["FRONTEND-2026", "BACKEND-PYTHON", "CYBER-SECURITY"];
+    const DEFAULT_QUESTIONS = [
+        { text: "JavaScript-da o'zgaruvchi e'lon qilish uchun qaysi kalit so'z ishlatilmaydi?", options: ["let", "const", "var", "define"], correct: 3 },
+        { text: "CSS-da elementni markazga keltirish uchun qaysi xususiyat ishlatiladi?", options: ["display: flex; justify-content: center;", "float: center;", "text-align: middle;", "align: center;"], correct: 0 },
+        { text: "HTML-da eng katta sarlavha tegi qaysi?", options: ["<h6>", "<head>", "<h1>", "<header>"], correct: 2 }
+    ];
+
+    let state = {
+        teacherPass: localStorage.getItem('edu_teacher_pass') || null,
+        teacherName: localStorage.getItem('edu_teacher_name') || null,
+        groups: JSON.parse(localStorage.getItem('edu_groups')) || DEFAULT_GROUPS,
+        questions: JSON.parse(localStorage.getItem('edu_questions')) || DEFAULT_QUESTIONS,
+        logs: JSON.parse(localStorage.getItem('edu_logs')) || [],
+        results: JSON.parse(localStorage.getItem('edu_results')) || [],
+        completedStudents: JSON.parse(localStorage.getItem('edu_completed')) || []
+    };
+
+    let currentExam = {
+        studentName: '',
+        group: '',
+        answers: {},
+        currentIdx: 0,
+        timer: null,
+        timeLeft: 900, // 15 minut
+        violations: 0
+    };
+
+    // DOM Elements
+    const screens = {
+        welcome: document.getElementById('screenWelcome'),
+        teacherAuth: document.getElementById('screenTeacherAuth'),
+        teacherDash: document.getElementById('screenTeacherDash'),
+        studentAuth: document.getElementById('screenStudentAuth'),
+        studentExam: document.getElementById('screenStudentExam'),
+        result: document.getElementById('screenResult')
+    };
+
+    // INITIALIZATION
+    window.addEventListener('DOMContentLoaded', () => {
+        saveData();
+        renderTeacherDash();
+
+        // Sync across multiple tabs in real-time
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'edu_logs' || e.key === 'edu_results') {
+                state.logs = JSON.parse(localStorage.getItem('edu_logs')) || [];
+                state.results = JSON.parse(localStorage.getItem('edu_results')) || [];
+                renderLogs();
+                renderResults();
+            }
+        });
+    });
+
+    function saveData() {
+        localStorage.setItem('edu_groups', JSON.stringify(state.groups));
+        localStorage.setItem('edu_questions', JSON.stringify(state.questions));
+        localStorage.setItem('edu_logs', JSON.stringify(state.logs));
+        localStorage.setItem('edu_results', JSON.stringify(state.results));
+        localStorage.setItem('edu_completed', JSON.stringify(state.completedStudents));
+    }
+
+    function showScreen(screenKey) {
+        Object.keys(screens).forEach(key => screens[key].classList.add('hidden'));
+        screens[screenKey].classList.remove('hidden');
+    }
+
+    function goBack() {
+        showScreen('welcome');
+        document.getElementById('userInfoHeader').classList.add('hidden');
+    }
+
+    function goHome() {
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(()=>{});
+        }
+        showScreen('welcome');
+        document.getElementById('userInfoHeader').classList.add('hidden');
+    }
+
+    // ROLE SELECTION
+    function selectRole(role) {
+        if (role === 'teacher') {
+            if (!state.teacherPass) {
+                document.getElementById('teacherAuthTitle').innerText = "O'qituvchi Profilini Yaratish";
+                document.getElementById('teacherAuthSub').innerText = "Tizim uchun ismingiz va maxfiy parol belgilang";
+                document.getElementById('teacherNameGroup').classList.remove('hidden');
+            } else {
+                document.getElementById('teacherAuthTitle').innerText = "O'qituvchi Kirishi";
+                document.getElementById('teacherAuthSub').innerText = "Tizimga kirish uchun maxfiy parolni kiriting";
+                document.getElementById('teacherNameGroup').classList.add('hidden');
+            }
+            showScreen('teacherAuth');
+        } else {
+            renderStudentGroupSelect();
+            showScreen('studentAuth');
+        }
+    }
+
+    // TEACHER AUTHENTICATION
+    function handleTeacherAuth(e) {
+        e.preventDefault();
+        const passInput = document.getElementById('teacherPassword').value;
+        const nameInput = document.getElementById('teacherFullName').value;
+        const errDiv = document.getElementById('teacherAuthError');
+
+        if (!state.teacherPass) {
+            if (!nameInput.trim()) {
+                errDiv.innerText = "Iltimos, ismingizni kiriting!";
+                errDiv.classList.remove('hidden');
+                return;
+            }
+            state.teacherPass = passInput;
+            state.teacherName = nameInput;
+            localStorage.setItem('edu_teacher_pass', passInput);
+            localStorage.setItem('edu_teacher_name', nameInput);
+        } else {
+            if (passInput !== state.teacherPass) {
+                errDiv.innerText = "Maxfiy parol noto'g'ri!";
+                errDiv.classList.remove('hidden');
+                return;
+            }
+        }
+
+        errDiv.classList.add('hidden');
+        document.getElementById('headerUserRole').innerText = "O'qituvchi";
+        document.getElementById('headerUserName').innerText = state.teacherName || "O'qituvchi";
+        document.getElementById('userInfoHeader').classList.remove('hidden');
+
+        renderTeacherDash();
+        showScreen('teacherDash');
+    }
+
+    function logout() {
+        goHome();
+    }
+
+    // TEACHER DASHBOARD TABS
+    function switchTeacherTab(tabKey) {
+        ['tabLogs', 'tabGroups', 'tabTests', 'tabResults'].forEach(t => document.getElementById(t).classList.add('hidden'));
+        ['btnTabLogs', 'btnTabGroups', 'btnTabTests', 'btnTabResults'].forEach(b => {
+            document.getElementById(b).className = "px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 text-slate-300 hover:bg-slate-600 transition";
+        });
+
+        document.getElementById(tabKey).classList.remove('hidden');
+        const activeBtn = document.getElementById('btn' + tabKey.charAt(0).toUpperCase() + tabKey.slice(1));
+        activeBtn.className = "px-4 py-2 rounded-lg font-medium text-sm bg-indigo-600 text-white transition";
+    }
+
+    function renderTeacherDash() {
+        renderLogs();
+        renderGroups();
+        renderQuestions();
+        renderResults();
+    }
+
+    // LOGS MANAGEMENT
+    function renderLogs() {
+        const container = document.getElementById('logsContainer');
+        document.getElementById('badgeLogs').innerText = state.logs.length;
+
+        if (state.logs.length === 0) {
+            container.innerHTML = `<div class="text-center text-slate-500 py-8 text-sm">Hali hech qanday qoidabuzarlik qayd etilmadi.</div>`;
+            return;
+        }
+
+        container.innerHTML = state.logs.map(log => `
+                <div class="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-white text-sm">O'quvchi: ${log.studentName} (${log.group})</div>
+                            <div class="text-xs text-rose-300">${log.message}</div>
+                        </div>
+                    </div>
+                    <span class="text-xs font-mono text-slate-400">${log.time}</span>
+                </div>
+            `).join('');
+    }
+
+    function addLog(studentName, group, message) {
+        const newLog = {
+            id: Date.now(),
+            studentName,
+            group,
+            message,
+            time: new Date().toLocaleTimeString()
+        };
+        state.logs.unshift(newLog);
+        saveData();
+        renderLogs();
+    }
+
+    function clearLogs() {
+        state.logs = [];
+        saveData();
+        renderLogs();
+    }
+
+    // GROUPS MANAGEMENT
+    function createGroup(e) {
+        e.preventDefault();
+        const input = document.getElementById('inputGroupName');
+        const val = input.value.trim().toUpperCase();
+        if (val && !state.groups.includes(val)) {
+            state.groups.push(val);
+            saveData();
+            renderGroups();
+            input.value = '';
+        }
+    }
+
+    function renderGroups() {
+        const list = document.getElementById('groupsList');
+        list.innerHTML = state.groups.map(g => `
+                <div class="bg-slate-900 border border-slate-700 p-4 rounded-lg flex items-center justify-between">
+                    <span class="font-bold text-indigo-300 text-sm"><i class="fa-solid fa-users-rectangle mr-2"></i>${g}</span>
+                    <button onclick="deleteGroup('${g}')" class="text-rose-400 hover:text-rose-300 text-xs"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `).join('');
+    }
+
+    function deleteGroup(g) {
+        state.groups = state.groups.filter(item => item !== g);
+        saveData();
+        renderGroups();
+    }
+
+    // TEST CREATOR MANAGEMENT
+    function addTestQuestion(e) {
+        e.preventDefault();
+        const q = {
+            text: document.getElementById('qText').value.trim(),
+            options: [
+                document.getElementById('qOptA').value.trim(),
+                document.getElementById('qOptB').value.trim(),
+                document.getElementById('qOptC').value.trim(),
+                document.getElementById('qOptD').value.trim()
+            ],
+            correct: parseInt(document.getElementById('qCorrect').value)
+        };
+        state.questions.push(q);
+        saveData();
+        renderQuestions();
+        e.target.reset();
+    }
+
+    function renderQuestions() {
+        document.getElementById('testCount').innerText = state.questions.length;
+        const container = document.getElementById('questionsList');
+
+        container.innerHTML = state.questions.map((q, idx) => `
+                <div class="bg-slate-900 border border-slate-700 p-4 rounded-lg space-y-2">
+                    <div class="flex justify-between items-start">
+                        <span class="font-bold text-white text-sm">${idx + 1}. ${q.text}</span>
+                        <button onclick="deleteQuestion(${idx})" class="text-rose-400 hover:text-rose-300 text-xs"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        ${q.options.map((opt, i) => `
+                            <div class="${i === q.correct ? 'text-emerald-400 font-bold' : 'text-slate-400'}">
+                                ${String.fromCharCode(65 + i)}) ${opt} ${i === q.correct ? '✓' : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+    }
+
+    function deleteQuestion(idx) {
+        state.questions.splice(idx, 1);
+        saveData();
+        renderQuestions();
+    }
+
+    // RESULTS MANAGEMENT
+    function renderResults() {
+        const body = document.getElementById('resultsTableBody');
+        if (state.results.length === 0) {
+            body.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-500">Hali hech kim imtihon topshirmadi.</td></tr>`;
+            return;
+        }
+
+        body.innerHTML = state.results.map(r => `
+                <tr class="hover:bg-slate-750">
+                    <td class="p-3 font-semibold text-white">${r.name}</td>
+                    <td class="p-3 text-slate-400">${r.group}</td>
+                    <td class="p-3 font-mono">${r.score} / ${r.total}</td>
+                    <td class="p-3 font-bold ${r.passed ? 'text-emerald-400' : 'text-rose-400'}">${r.percent}%</td>
+                    <td class="p-3">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold ${r.passed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">
+                            ${r.passed ? "O'tgan" : "Yiqilgan"}
+                        </span>
+                    </td>
+                    <td class="p-3 text-rose-400 font-mono text-xs">${r.violations} ta ogohlantirish</td>
+                </tr>
+            `).join('');
+    }
+
+    // STUDENT EXAM LOGIC & ANTI-CHEAT
+    function renderStudentGroupSelect() {
+        const select = document.getElementById('studentGroupSelect');
+        if (state.groups.length === 0) {
+            select.innerHTML = `<option value="">Guruhlar mavjud emas</option>`;
+            return;
+        }
+        select.innerHTML = state.groups.map(g => `<option value="${g}">${g}</option>`).join('');
+    }
+
+    function startStudentExam(e) {
+        e.preventDefault();
+        const name = document.getElementById('studentFullName').value.trim();
+        const group = document.getElementById('studentGroupSelect').value;
+        const errDiv = document.getElementById('studentAuthError');
+
+        if (!name || !group) return;
+
+        // Check if already completed
+        const userKey = `${name.toLowerCase()}_${group.toLowerCase()}`;
+        if (state.completedStudents.includes(userKey)) {
+            errDiv.innerText = "Siz ushbu imtihonni topshirib bo'lgansiz! Qayta topshirish taqiqlangan.";
+            errDiv.classList.remove('hidden');
+            return;
+        }
+
+        if (state.questions.length === 0) {
+            errDiv.innerText = "Hozirda test savollari mavjud emas. O'qituvchi savol qo'shishi kutilmoqda.";
+            errDiv.classList.remove('hidden');
+            return;
+        }
+
+        errDiv.classList.add('hidden');
+
+        currentExam = {
+            studentName: name,
+            group: group,
+            answers: {},
+            currentIdx: 0,
+            timeLeft: 900,
+            violations: 0
+        };
+
+        document.getElementById('examStudentName').innerText = `${name} (${group})`;
+        document.getElementById('headerUserRole').innerText = "O'quvchi";
+        document.getElementById('headerUserName').innerText = name;
+        document.getElementById('userInfoHeader').classList.remove('hidden');
+
+        showScreen('studentExam');
+        enterFullscreen();
+        startAntiCheatListeners();
+        startTimer();
+        renderQuestion();
+    }
+
+    function enterFullscreen() {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(() => {});
+        }
+    }
+
+    function startTimer() {
+        clearInterval(currentExam.timer);
+        currentExam.timer = setInterval(() => {
+            currentExam.timeLeft--;
+            const mins = Math.floor(currentExam.timeLeft / 60);
+            const secs = currentExam.timeLeft % 60;
+            document.getElementById('examTimer').innerText =
+                `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            if (currentExam.timeLeft <= 0) {
+                clearInterval(currentExam.timer);
+                submitExam();
+            }
+        }, 1000);
+    }
+
+    function renderQuestion() {
+        const q = state.questions[currentExam.currentIdx];
+        document.getElementById('currentQNum').innerText = currentExam.currentIdx + 1;
+        document.getElementById('totalQNum').innerText = state.questions.length;
+        document.getElementById('questionText').innerText = q.text;
+
+        const optsContainer = document.getElementById('optionsContainer');
+        optsContainer.innerHTML = q.options.map((opt, i) => {
+            const isSelected = currentExam.answers[currentExam.currentIdx] === i;
+            return `
+                    <button onclick="selectOption(${i})" class="w-full text-left p-4 rounded-xl border transition flex items-center justify-between ${isSelected ? 'bg-indigo-600/20 border-indigo-500 text-white font-semibold' : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'}">
+                        <span><b class="mr-2">${String.fromCharCode(65 + i)})</b> ${opt}</span>
+                        <div class="w-5 h-5 rounded-full border ${isSelected ? 'border-indigo-500 bg-indigo-500' : 'border-slate-600'} flex items-center justify-center text-xs text-white">
+                            ${isSelected ? '✓' : ''}
+                        </div>
+                    </button>
+                `;
+        }).join('');
+
+        // Controls visibility
+        document.getElementById('btnPrevQ').disabled = currentExam.currentIdx === 0;
+        if (currentExam.currentIdx === state.questions.length - 1) {
+            document.getElementById('btnNextQ').classList.add('hidden');
+            document.getElementById('btnSubmitQ').classList.remove('hidden');
+        } else {
+            document.getElementById('btnNextQ').classList.remove('hidden');
+            document.getElementById('btnSubmitQ').classList.add('hidden');
+        }
+    }
+
+    function selectOption(optIdx) {
+        currentExam.answers[currentExam.currentIdx] = optIdx;
+        renderQuestion();
+    }
+
+    function prevQuestion() {
+        if (currentExam.currentIdx > 0) {
+            currentExam.currentIdx--;
+            renderQuestion();
+        }
+    }
+
+    function nextQuestion() {
+        if (currentExam.currentIdx < state.questions.length - 1) {
+            currentExam.currentIdx++;
+            renderQuestion();
+        }
+    }
+
+    // ANTI-CHEAT DETECTORS & SCREEN SHIELD
+    function triggerSecurityViolation(msg) {
+        currentExam.violations++;
+        addLog(currentExam.studentName, currentExam.group, msg);
+
+        // Hide questions & display shield overlay
+        document.getElementById('examContentArea').classList.add('shield-blur');
+        document.getElementById('securityShieldOverlay').classList.remove('hidden');
+    }
+
+    function resumeExam() {
+        enterFullscreen();
+        document.getElementById('examContentArea').classList.remove('shield-blur');
+        document.getElementById('securityShieldOverlay').classList.add('hidden');
+    }
+
+    function startAntiCheatListeners() {
+        // 1. Tab switch / Blur detector
+        window.addEventListener('blur', () => {
+            if (!screens.studentExam.classList.contains('hidden')) {
+                triggerSecurityViolation(`O'quvchi [${currentExam.studentName}] paneldan/tabdan chiqishga urundi!`);
+            }
+        });
+
+        // 2. Fullscreen Exit Detector
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && !screens.studentExam.classList.contains('hidden')) {
+                triggerSecurityViolation(`O'quvchi [${currentExam.studentName}] to'liq ekrandan chiqib ketdi!`);
+            }
+        });
+
+        // 3. Screenshot Keys Detector (PrtScr, Ctrl+P, Ctrl+Shift+S, Alt+PrtScr, etc.)
+        window.addEventListener('keydown', (e) => {
+            if (screens.studentExam.classList.contains('hidden')) return;
+
+            const isPrtScr = e.key === 'PrintScreen' || e.keyCode === 44;
+            const isCtrlP = e.ctrlKey && (e.key === 'p' || e.key === 'P');
+            const isCtrlS = e.ctrlKey && e.shiftKey && (e.key === 's' || e.key === 'S');
+            const isCmdShift = e.metaKey && e.shiftKey; // Mac screenshots
+
+            if (isPrtScr || isCtrlP || isCtrlS || isCmdShift) {
+                e.preventDefault();
+                triggerSecurityViolation(`O'quvchi [${currentExam.studentName}] screenshot olishga urundi!`);
+            }
+        });
+
+        // 4. Clipboard / Copy protection
+        window.addEventListener('copy', (e) => {
+            if (!screens.studentExam.classList.contains('hidden')) {
+                e.preventDefault();
+            }
+        });
+    }
+
+    // SUBMIT EXAM & SHOW RESULTS (CELEBRATION / DOWNSIDE)
+    function submitExam() {
+        clearInterval(currentExam.timer);
+
+        // Calculate score
+        let correctCount = 0;
+        state.questions.forEach((q, idx) => {
+            if (currentExam.answers[idx] === q.correct) {
+                correctCount++;
+            }
+        });
+
+        const total = state.questions.length;
+        const percent = Math.round((correctCount / total) * 100);
+        const passed = percent >= 60; // 60% pas ball
+
+        // Save Result
+        const userKey = `${currentExam.studentName.toLowerCase()}_${currentExam.group.toLowerCase()}`;
+        state.completedStudents.push(userKey);
+
+        state.results.unshift({
+            name: currentExam.studentName,
+            group: currentExam.group,
+            score: correctCount,
+            total: total,
+            percent: percent,
+            passed: passed,
+            violations: currentExam.violations
+        });
+
+        saveData();
+
+        // Exit Fullscreen
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(()=>{});
+        }
+
+        // Render Result Screen
+        showScreen('result');
+        document.getElementById('resPassed').classList.add('hidden');
+        document.getElementById('resFailed').classList.add('hidden');
+
+        if (passed) {
+            document.getElementById('resPassed').classList.remove('hidden');
+            document.getElementById('passStudentName').innerText = currentExam.studentName;
+            document.getElementById('passScore').innerText = `${correctCount} / ${total} (${percent}%)`;
+
+            // Fire Fireworks Confetti
+            fireConfetti();
+        } else {
+            document.getElementById('resFailed').classList.remove('hidden');
+            document.getElementById('failStudentName').innerText = currentExam.studentName;
+            document.getElementById('failScore').innerText = `${correctCount} / ${total} (${percent}%)`;
+        }
+    }
+
+    // FIREWORKS / CONFETTI EFFECT
+    function fireConfetti() {
+        const count = 200;
+        const defaults = { origin: { y: 0.7 } };
+
+        function fire(particleRatio, opts) {
+            confetti(Object.assign({}, defaults, opts, {
+                particleCount: Math.floor(count * particleRatio)
+            }));
+        }
+
+        fire(0.25, { spread: 26, startVelocity: 55, origin: { x: 0 } });
+        fire(0.2, { spread: 60, origin: { x: 0 } });
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, origin: { x: 0 } });
+        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2, origin: { x: 0 } });
+        fire(0.1, { spread: 120, startVelocity: 45, origin: { x: 0 } });
+
+        // Right side fireworks
+        fire(0.25, { spread: 26, startVelocity: 55, origin: { x: 1 } });
+        fire(0.2, { spread: 60, origin: { x: 1 } });
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, origin: { x: 1 } });
+        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2, origin: { x: 1 } });
+        fire(0.1, { spread: 120, startVelocity: 45, origin: { x: 1 } });
+    }
+</script>
+</body>
+</html>
